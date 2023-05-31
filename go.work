@@ -1,3 +1,6 @@
 go 1.19
 
-use ./go-crud-api
+use (
+	./go-crud-api
+	./go-crud-api-mysql
+)
