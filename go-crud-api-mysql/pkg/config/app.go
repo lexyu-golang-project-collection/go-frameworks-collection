@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
+	"github.com/joho/godotenv"
 )
 
 var (
@@ -10,7 +11,8 @@ var (
 )
 
 func Connect() {
-	d, err := gorm.Open("mysql", "root:00112125@tcp(127.0.0.1:3306)?charset=utf8&parseTime=Trie&loc=Local")
+	envMap, _ := godotenv.Read("../.env")
+	d, err := gorm.Open("mysql", envMap["DB_URL"])
 	if err != nil {
 		panic(err)
 	}

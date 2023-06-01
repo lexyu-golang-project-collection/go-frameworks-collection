@@ -3,4 +3,6 @@ go 1.19
 use (
 	./go-crud-api
 	./go-crud-api-mysql
+    ./go-crud-api-with-gin-gorm
+    ./go-gorm-demo
 )

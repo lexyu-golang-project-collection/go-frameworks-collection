@@ -1,6 +1,9 @@
 package models
 
 import (
+	"database/sql"
+	"time"
+
 	"github.com/jinzhu/gorm"
 	"github.com/lex/go-crud-api-mysql/pkg/config"
 )
@@ -14,10 +17,38 @@ type Book struct {
 	Publication string `json:"publication"`
 }
 
+type Others struct {
+	Name        string `json:"name"`
+	Author      string `json:"author"`
+	Publication string `json:"publication"`
+}
+
+type User struct {
+	ID           uint
+	Name         string
+	Email        *string
+	Age          uint8
+	Birthday     *time.Time
+	MemberNumber sql.NullString
+	ActivatedAt  sql.NullTime
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type TestTable struct {
+	ID         int64
+	Username   string `gorm:"column:username"`
+	Password   string `gorm:"column:password"`
+	CreateTime int64  `gorm:"column:createtime"`
+}
+
 func init() {
 	config.Connect()
 	db = config.GetDB()
 	db.AutoMigrate(&Book{})
+	db.AutoMigrate(&Others{})
+	db.AutoMigrate(&User{})
+	db.AutoMigrate(&TestTable{})
 }
 
 func (b *Book) CreateBook() *Book {
