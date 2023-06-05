@@ -1,7 +1,4 @@
-# Ref
-- [GO And MYSQL - 2021 Project 🚀 💣 🔥 - Connect Go with Mysql / Build a Book Management System](https://youtu.be/1E_YycpCsXw)
-
-# Use
+# Graphic
 - MySQL
 - GORM
 - Json marshall, unmarshall

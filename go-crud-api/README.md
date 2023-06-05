@@ -1,6 +1,4 @@
-# Ref
-- [Build A CRUD API With Golang - 2021](https://youtu.be/TkbhQQS3m_o)
-
+# Graphic
 ```mermaid
 flowchart TB
     PM[Postman]
