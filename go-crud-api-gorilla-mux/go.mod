@@ -1,4 +1,4 @@
-module github.com/lex/go-crud-api
+module github.com/lex/go-crud-api-gorilla-mux
 
 go 1.19
 

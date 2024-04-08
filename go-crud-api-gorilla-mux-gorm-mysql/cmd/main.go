@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/lex/go-crud-api-mysql/pkg/routes"
+	"github.com/lex/go-crud-api-gorilla-mux-gorm/pkg/routes"
 )
 
 func main() {

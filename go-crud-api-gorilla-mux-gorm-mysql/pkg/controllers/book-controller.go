@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/lex/go-crud-api-mysql/pkg/models"
-	"github.com/lex/go-crud-api-mysql/pkg/utils"
+	"github.com/lex/go-crud-api-gorilla-mux-gorm/pkg/models"
+	"github.com/lex/go-crud-api-gorilla-mux-gorm/pkg/utils"
 )
 
 var NewBook models.Book

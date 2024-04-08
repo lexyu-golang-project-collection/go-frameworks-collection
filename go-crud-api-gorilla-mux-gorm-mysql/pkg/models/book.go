@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/jinzhu/gorm"
-	"github.com/lex/go-crud-api-mysql/pkg/config"
+	"github.com/lex/go-crud-api-gorilla-mux-gorm/pkg/config"
 )
 
 var db *gorm.DB

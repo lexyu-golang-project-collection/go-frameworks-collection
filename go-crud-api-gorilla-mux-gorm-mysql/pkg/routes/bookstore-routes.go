@@ -2,7 +2,7 @@ package routes
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/lex/go-crud-api-mysql/pkg/controllers"
+	"github.com/lex/go-crud-api-gorilla-mux-gorm/pkg/controllers"
 )
 
 var RegisterBookStoreRoutes = func(router *mux.Router) {

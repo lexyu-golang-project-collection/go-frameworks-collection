@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"crud-api/initializers"
-	"crud-api/models"
+	"go-crud-api-with-gin-gorm-postgres/initializers"
+	"go-crud-api-with-gin-gorm-postgres/models"
 
 	"github.com/gin-gonic/gin"
 )
