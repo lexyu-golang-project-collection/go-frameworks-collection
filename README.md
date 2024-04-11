@@ -6,3 +6,6 @@
 - go-crud-api-with-gin-gorm
   - [Coding with Robby](https://youtu.be/lf_kiH_NPvM)
 
+
+- WebSocket
+    - [Http Upgrade](https://tutorialedge.net/golang/go-websocket-tutorial/)
