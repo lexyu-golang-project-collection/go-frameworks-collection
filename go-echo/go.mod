@@ -1,8 +1,9 @@
-module github.com/lexyu-golang-project-collection/go-echo
+module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-echo
 
 go 1.23.1
 
 require (
+	github.com/brianvoe/gofakeit/v7 v7.0.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/labstack/echo/v4 v4.12.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect

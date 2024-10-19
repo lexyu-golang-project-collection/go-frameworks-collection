@@ -1,4 +1,4 @@
-module go-crud-api-with-gin-gorm-postgres
+module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-crud-api-with-gin-gorm-postgres
 
 go 1.19
 
