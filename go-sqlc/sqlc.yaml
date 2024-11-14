@@ -1,12 +1,31 @@
 version: "2"
 sql:
   - engine: "sqlite"
-    queries: "query.sql"
-    schema: "schema.sql"
+    queries: "sqlc/sqlite/query.sql"
+    schema: "sqlc/sqlite/schema.sql"
     gen:
       go:
-        package: "tutorial"
-        out: "tutorial"
+        package: "sqlite"
+        out: "db/sqlite"
         emit_json_tags: true
         emit_prepared_queries: true
-    
+
+  - engine: "postgresql"
+    queries: "sqlc/postgres/query.sql"
+    schema: "sqlc/postgres/schema.sql"
+    gen:
+      go:
+        package: "postgres"
+        out: "db/postgres"
+        emit_json_tags: true
+        emit_prepared_queries: true
+        
+  - engine: "mysql"
+    queries: "sqlc/mysql/query.sql" 
+    schema: "sqlc/mysql/schema.sql"
+    gen:
+      go:
+        package: "mysql"
+        out: "db/mysql"
+        emit_json_tags: true
+        emit_prepared_queries: true

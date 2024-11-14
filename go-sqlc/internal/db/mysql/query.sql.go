@@ -3,17 +3,16 @@
 //   sqlc v1.27.0
 // source: query.sql
 
-package tutorial
+package mysql
 
 import (
 	"context"
 	"database/sql"
 )
 
-const createAuthor = `-- name: CreateAuthor :one
+const createAuthor = `-- name: CreateAuthor :execresult
 INSERT INTO authors (name, bio)
 VALUES (?, ?)
-RETURNING id, name, bio
 `
 
 type CreateAuthorParams struct {
@@ -21,11 +20,8 @@ type CreateAuthorParams struct {
 	Bio  sql.NullString `json:"bio"`
 }
 
-func (q *Queries) CreateAuthor(ctx context.Context, arg CreateAuthorParams) (Author, error) {
-	row := q.queryRow(ctx, q.createAuthorStmt, createAuthor, arg.Name, arg.Bio)
-	var i Author
-	err := row.Scan(&i.ID, &i.Name, &i.Bio)
-	return i, err
+func (q *Queries) CreateAuthor(ctx context.Context, arg CreateAuthorParams) (sql.Result, error) {
+	return q.exec(ctx, q.createAuthorStmt, createAuthor, arg.Name, arg.Bio)
 }
 
 const deleteAuthor = `-- name: DeleteAuthor :exec
@@ -33,7 +29,7 @@ DELETE FROM authors
 WHERE id = ?
 `
 
-func (q *Queries) DeleteAuthor(ctx context.Context, id int64) error {
+func (q *Queries) DeleteAuthor(ctx context.Context, id int32) error {
 	_, err := q.exec(ctx, q.deleteAuthorStmt, deleteAuthor, id)
 	return err
 }
@@ -42,11 +38,34 @@ const getAuthor = `-- name: GetAuthor :one
 SELECT id, name, bio
 FROM authors
 WHERE id = ?
-LIMIT 1
 `
 
-func (q *Queries) GetAuthor(ctx context.Context, id int64) (Author, error) {
+func (q *Queries) GetAuthor(ctx context.Context, id int32) (Author, error) {
 	row := q.queryRow(ctx, q.getAuthorStmt, getAuthor, id)
+	var i Author
+	err := row.Scan(&i.ID, &i.Name, &i.Bio)
+	return i, err
+}
+
+const getAuthorById = `-- name: GetAuthorById :one
+SELECT id, name, bio FROM authors
+WHERE id = LAST_INSERT_ID()
+`
+
+func (q *Queries) GetAuthorById(ctx context.Context) (Author, error) {
+	row := q.queryRow(ctx, q.getAuthorByIdStmt, getAuthorById)
+	var i Author
+	err := row.Scan(&i.ID, &i.Name, &i.Bio)
+	return i, err
+}
+
+const getUpdatedAuthor = `-- name: GetUpdatedAuthor :one
+SELECT id, name, bio FROM authors
+WHERE id = ?
+`
+
+func (q *Queries) GetUpdatedAuthor(ctx context.Context, id int32) (Author, error) {
+	row := q.queryRow(ctx, q.getUpdatedAuthorStmt, getUpdatedAuthor, id)
 	var i Author
 	err := row.Scan(&i.ID, &i.Name, &i.Bio)
 	return i, err
@@ -81,23 +100,20 @@ func (q *Queries) ListAuthors(ctx context.Context) ([]Author, error) {
 	return items, nil
 }
 
-const updateAuthor = `-- name: UpdateAuthor :one
+const updateAuthor = `-- name: UpdateAuthor :exec
 UPDATE authors
 set name = ?,
-bio = ?
+    bio = ?
 WHERE id = ?
-RETURNING id, name, bio
 `
 
 type UpdateAuthorParams struct {
 	Name string         `json:"name"`
 	Bio  sql.NullString `json:"bio"`
-	ID   int64          `json:"id"`
+	ID   int32          `json:"id"`
 }
 
-func (q *Queries) UpdateAuthor(ctx context.Context, arg UpdateAuthorParams) (Author, error) {
-	row := q.queryRow(ctx, q.updateAuthorStmt, updateAuthor, arg.Name, arg.Bio, arg.ID)
-	var i Author
-	err := row.Scan(&i.ID, &i.Name, &i.Bio)
-	return i, err
+func (q *Queries) UpdateAuthor(ctx context.Context, arg UpdateAuthorParams) error {
+	_, err := q.exec(ctx, q.updateAuthorStmt, updateAuthor, arg.Name, arg.Bio, arg.ID)
+	return err
 }

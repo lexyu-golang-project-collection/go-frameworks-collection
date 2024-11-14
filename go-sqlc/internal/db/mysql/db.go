@@ -2,7 +2,7 @@
 // versions:
 //   sqlc v1.27.0
 
-package tutorial
+package mysql
 
 import (
 	"context"
@@ -33,6 +33,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getAuthorStmt, err = db.PrepareContext(ctx, getAuthor); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAuthor: %w", err)
 	}
+	if q.getAuthorByIdStmt, err = db.PrepareContext(ctx, getAuthorById); err != nil {
+		return nil, fmt.Errorf("error preparing query GetAuthorById: %w", err)
+	}
+	if q.getUpdatedAuthorStmt, err = db.PrepareContext(ctx, getUpdatedAuthor); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUpdatedAuthor: %w", err)
+	}
 	if q.listAuthorsStmt, err = db.PrepareContext(ctx, listAuthors); err != nil {
 		return nil, fmt.Errorf("error preparing query ListAuthors: %w", err)
 	}
@@ -57,6 +63,16 @@ func (q *Queries) Close() error {
 	if q.getAuthorStmt != nil {
 		if cerr := q.getAuthorStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getAuthorStmt: %w", cerr)
+		}
+	}
+	if q.getAuthorByIdStmt != nil {
+		if cerr := q.getAuthorByIdStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getAuthorByIdStmt: %w", cerr)
+		}
+	}
+	if q.getUpdatedAuthorStmt != nil {
+		if cerr := q.getUpdatedAuthorStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUpdatedAuthorStmt: %w", cerr)
 		}
 	}
 	if q.listAuthorsStmt != nil {
@@ -106,23 +122,27 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db               DBTX
-	tx               *sql.Tx
-	createAuthorStmt *sql.Stmt
-	deleteAuthorStmt *sql.Stmt
-	getAuthorStmt    *sql.Stmt
-	listAuthorsStmt  *sql.Stmt
-	updateAuthorStmt *sql.Stmt
+	db                   DBTX
+	tx                   *sql.Tx
+	createAuthorStmt     *sql.Stmt
+	deleteAuthorStmt     *sql.Stmt
+	getAuthorStmt        *sql.Stmt
+	getAuthorByIdStmt    *sql.Stmt
+	getUpdatedAuthorStmt *sql.Stmt
+	listAuthorsStmt      *sql.Stmt
+	updateAuthorStmt     *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:               tx,
-		tx:               tx,
-		createAuthorStmt: q.createAuthorStmt,
-		deleteAuthorStmt: q.deleteAuthorStmt,
-		getAuthorStmt:    q.getAuthorStmt,
-		listAuthorsStmt:  q.listAuthorsStmt,
-		updateAuthorStmt: q.updateAuthorStmt,
+		db:                   tx,
+		tx:                   tx,
+		createAuthorStmt:     q.createAuthorStmt,
+		deleteAuthorStmt:     q.deleteAuthorStmt,
+		getAuthorStmt:        q.getAuthorStmt,
+		getAuthorByIdStmt:    q.getAuthorByIdStmt,
+		getUpdatedAuthorStmt: q.getUpdatedAuthorStmt,
+		listAuthorsStmt:      q.listAuthorsStmt,
+		updateAuthorStmt:     q.updateAuthorStmt,
 	}
 }

@@ -2,14 +2,14 @@
 // versions:
 //   sqlc v1.27.0
 
-package tutorial
+package mysql
 
 import (
 	"database/sql"
 )
 
 type Author struct {
-	ID   int64          `json:"id"`
+	ID   int32          `json:"id"`
 	Name string         `json:"name"`
 	Bio  sql.NullString `json:"bio"`
 }
