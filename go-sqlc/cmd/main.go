@@ -5,23 +5,39 @@ import (
 	"log"
 
 	"github.com/lexyu-golang-project-collection/go-frameworks-collection/go-sqlc/config"
-	embedSQL "github.com/lexyu-golang-project-collection/go-frameworks-collection/go-sqlc/internal/db/embed"
+	"github.com/lexyu-golang-project-collection/go-frameworks-collection/go-sqlc/config/constants"
 	"github.com/lexyu-golang-project-collection/go-frameworks-collection/go-sqlc/internal/repository"
 	"github.com/lexyu-golang-project-collection/go-frameworks-collection/go-sqlc/internal/service"
 	"github.com/lexyu-golang-project-collection/go-frameworks-collection/go-sqlc/router"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func init() {
-	embedSQL.GetSQLiteDDL()
-	embedSQL.GetMySQLDDL()
-	embedSQL.GetPostgresDDL()
-}
-
 func main() {
-	cfg := config.NewConfig()
 
-	// init DBs
+	env := config.GetEnvConfig()
+
+	// Create config with all database options
+	cfg := config.NewConfig(
+		// SQLite configuration
+		config.WithDatabase(constants.SQLite, env).
+			DSN().InMemory().MaxOpenConns().MaxIdleConns().MaxLifetime().
+			Build(),
+
+		// MySQL configuration
+		config.WithDatabase(constants.MySQL, env).
+			DSN().MaxOpenConns().MaxIdleConns().MaxLifetime().
+			Build(),
+
+		// Postgres configuration
+		config.WithDatabase(constants.Postgres, env).
+			DSN().MaxOpenConns().MaxIdleConns().MaxLifetime().
+			Build(),
+
+		// Global retry policy
+		config.WithRetryPolicy(env).Build(),
+	)
+
+	// init DB Manager
 	dbManager, err := repository.NewDBManager(cfg)
 	if err != nil {
 		log.Fatal(err)

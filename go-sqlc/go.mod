@@ -3,12 +3,15 @@ module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-sq
 go 1.23.1
 
 require (
+	github.com/go-sql-driver/mysql v1.8.1
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/mattn/go-sqlite3 v1.14.24
 )
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
