@@ -1,4 +1,4 @@
-module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-jwt-mysql
+module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-jwt
 
 go 1.22.0
 

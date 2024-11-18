@@ -1,4 +1,4 @@
-module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-websocket-gorilla-mux
+module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-websocket
 
 go 1.22.0
 
