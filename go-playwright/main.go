@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 )
 
 const (
@@ -85,17 +89,73 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not parse JSON: %v", err)
 	}
+
 	fmt.Println(len(data.StatStatusPairs))
+
 	problem := data.StatStatusPairs[len(data.StatStatusPairs)-1]
 	jsonB, _ := json.MarshalIndent(problem, "", " ")
 	fmt.Println(string(jsonB))
 
-	// Print problem URLs
-	// for _, problem := range data.StatStatusPairs {
-	// 	if !problem.PaidOnly {
-	// 		// Build the problem URL and print it
-	// 		url := ALGORITHMS_BASE_URL + problem.Stat.QuestionTitleSlug
-	// 		fmt.Println(url)
-	// 	}
-	// }
+	writeJSONToFile(data.StatStatusPairs, "problems.json")
+
+	urls := []string{}
+	for _, problem := range data.StatStatusPairs {
+		if !problem.PaidOnly {
+			url := ALGORITHMS_BASE_URL + problem.Stat.QuestionTitleSlug
+			urls = append(urls, url)
+		}
+	}
+	writeJSONArrayToFile(urls, "urls.json")
+}
+
+func writeJSONToFile(data []Problem, filename string) error {
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory error: %v", err)
+	}
+
+	fullPath := filepath.Join(currentDir, filename)
+
+	// using buffer
+	buf := new(bytes.Buffer)
+	enc := json.NewEncoder(buf)
+
+	if err := enc.Encode(data); err != nil {
+		return fmt.Errorf("encoding error: %v", err)
+	}
+
+	f, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("file open error: %v", err)
+	}
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		return fmt.Errorf("write error: %v", err)
+	}
+
+	// file location
+	fmt.Printf("File written to: %s\n", fullPath)
+	return w.Flush()
+}
+
+func writeJSONArrayToFile(urls []string, filename string) error {
+	jsonData, err := json.MarshalIndent(urls, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal error: %v", err)
+	}
+
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("file open error: %v", err)
+	}
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+	if _, err := w.Write(jsonData); err != nil {
+		return fmt.Errorf("write error: %v", err)
+	}
+
+	return w.Flush()
 }
