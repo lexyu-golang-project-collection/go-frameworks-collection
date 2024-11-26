@@ -1,15 +1,15 @@
-CREATE TABLE IF NOT EXISTS "schema_migrations" (version varchar(128) primary key);
-CREATE TABLE artists (
+-- migrate:up
+create table artists (
     ArtistId INTEGER not null primary key autoincrement,
     Name NVARCHAR(120)
 );
-CREATE TABLE albums (
+create table albums (
     AlbumId INTEGER not null primary key autoincrement,
     Title NVARCHAR(160) not null,
     ArtistId INTEGER not null references artists
 );
-CREATE INDEX IFK_AlbumArtistId on albums (ArtistId);
-CREATE TABLE employees (
+create index IFK_AlbumArtistId on albums (ArtistId);
+create table employees (
     EmployeeId INTEGER not null primary key autoincrement,
     LastName NVARCHAR(20) not null,
     FirstName NVARCHAR(20) not null,
@@ -26,7 +26,7 @@ CREATE TABLE employees (
     Fax NVARCHAR(24),
     Email NVARCHAR(60)
 );
-CREATE TABLE customers (
+create table customers (
     CustomerId INTEGER not null primary key autoincrement,
     FirstName NVARCHAR(40) not null,
     LastName NVARCHAR(20) not null,
@@ -41,13 +41,13 @@ CREATE TABLE customers (
     Email NVARCHAR(60) not null,
     SupportRepId INTEGER references employees
 );
-CREATE INDEX IFK_CustomerSupportRepId on customers (SupportRepId);
-CREATE INDEX IFK_EmployeeReportsTo on employees (ReportsTo);
-CREATE TABLE genres (
+create index IFK_CustomerSupportRepId on customers (SupportRepId);
+create index IFK_EmployeeReportsTo on employees (ReportsTo);
+create table genres (
     GenreId INTEGER not null primary key autoincrement,
     Name NVARCHAR(120)
 );
-CREATE TABLE invoices (
+create table invoices (
     InvoiceId INTEGER not null primary key autoincrement,
     CustomerId INTEGER not null references customers,
     InvoiceDate DATETIME not null,
@@ -58,16 +58,16 @@ CREATE TABLE invoices (
     BillingPostalCode NVARCHAR(10),
     Total NUMERIC(10, 2) not null
 );
-CREATE INDEX IFK_InvoiceCustomerId on invoices (CustomerId);
-CREATE TABLE media_types (
+create index IFK_InvoiceCustomerId on invoices (CustomerId);
+create table media_types (
     MediaTypeId INTEGER not null primary key autoincrement,
     Name NVARCHAR(120)
 );
-CREATE TABLE playlists (
+create table playlists (
     PlaylistId INTEGER not null primary key autoincrement,
     Name NVARCHAR(120)
 );
-CREATE TABLE tracks (
+create table tracks (
     TrackId INTEGER not null primary key autoincrement,
     Name NVARCHAR(200) not null,
     AlbumId INTEGER references albums,
@@ -78,24 +78,33 @@ CREATE TABLE tracks (
     Bytes INTEGER,
     UnitPrice NUMERIC(10, 2) not null
 );
-CREATE TABLE invoice_items (
+create table invoice_items (
     InvoiceLineId INTEGER not null primary key autoincrement,
     InvoiceId INTEGER not null references invoices,
     TrackId INTEGER not null references tracks,
     UnitPrice NUMERIC(10, 2) not null,
     Quantity INTEGER not null
 );
-CREATE INDEX IFK_InvoiceLineInvoiceId on invoice_items (InvoiceId);
-CREATE INDEX IFK_InvoiceLineTrackId on invoice_items (TrackId);
-CREATE TABLE playlist_track (
+create index IFK_InvoiceLineInvoiceId on invoice_items (InvoiceId);
+create index IFK_InvoiceLineTrackId on invoice_items (TrackId);
+create table playlist_track (
     PlaylistId INTEGER not null references playlists,
     TrackId INTEGER not null references tracks,
     constraint PK_PlaylistTrack primary key (PlaylistId, TrackId)
 );
-CREATE INDEX IFK_PlaylistTrackTrackId on playlist_track (TrackId);
-CREATE INDEX IFK_TrackAlbumId on tracks (AlbumId);
-CREATE INDEX IFK_TrackGenreId on tracks (GenreId);
-CREATE INDEX IFK_TrackMediaTypeId on tracks (MediaTypeId);
--- Dbmate schema migrations
-INSERT INTO "schema_migrations" (version) VALUES
-  ('20241126130434');
+create index IFK_PlaylistTrackTrackId on playlist_track (TrackId);
+create index IFK_TrackAlbumId on tracks (AlbumId);
+create index IFK_TrackGenreId on tracks (GenreId);
+create index IFK_TrackMediaTypeId on tracks (MediaTypeId);
+-- migrate:down
+drop table invoice_items;
+drop table invoices;
+drop table customers;
+drop table employees;
+drop table playlist_track;
+drop table playlists;
+drop table tracks;
+drop table albums;
+drop table artists;
+drop table genres;
+drop table media_types;
