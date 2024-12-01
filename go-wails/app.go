@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -22,6 +23,21 @@ func (a *App) startup(ctx context.Context) {
 }
 
 // Greet returns a greeting for the given name
-func (a *App) Greet(name string) string {
-	return fmt.Sprintf("Hello %s, It's show time!", name)
+func (a *App) ProcessJSON(jsonString string) (string, error) {
+	// 解析 JSON 字符串
+	var jsonData map[string]interface{}
+	err := json.Unmarshal([]byte(jsonString), &jsonData)
+	if err != nil {
+		// 如果 JSON 無效，返回錯誤
+		return "", fmt.Errorf("invalid JSON: %v", err)
+	}
+
+	// 格式化 JSON
+	formattedJSON, err := json.MarshalIndent(jsonData, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to format JSON: %v", err)
+	}
+
+	// 返回格式化後的 JSON
+	return string(formattedJSON), nil
 }

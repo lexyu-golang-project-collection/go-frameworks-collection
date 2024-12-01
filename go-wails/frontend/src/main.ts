@@ -1,46 +1,31 @@
 import './style.css';
-import './app.css';
 
-import logo from './assets/images/logo-universal.png';
-import {Greet} from '../wailsjs/go/main/App';
+import { ProcessJSON } from '../wailsjs/go/main/App';
+
+const inputElement = document.getElementById("jsonInput") as HTMLTextAreaElement;
+const outputElement = document.getElementById("jsonOutput") as HTMLPreElement;
 
 // Setup the greet function
-window.greet = function () {
-    // Get name
-    let name = nameElement!.value;
+window.greet = async function () {
+    if (!inputElement || !outputElement) {
+        console.error("Input or output element not found!");
+        return;
+    }
 
-    // Check if the input is empty
-    if (name === "") return;
+    const jsonString = inputElement.value;
 
-    // Call App.Greet(name)
     try {
-        Greet(name)
-            .then((result) => {
-                // Update result with data back from App.Greet()
-                resultElement!.innerText = result;
-            })
-            .catch((err) => {
-                console.error(err);
-            });
-    } catch (err) {
-        console.error(err);
+        // 調用後端 ProcessJSON 方法
+        const formattedJSON = await ProcessJSON(jsonString);
+        console.log(formattedJSON)
+        // 顯示格式化後的 JSON
+        outputElement.textContent = formattedJSON;
+    } catch (error) {
+        // 處理錯誤
+        console.error("Error processing JSON:", error);
+        outputElement.textContent = "Invalid JSON or processing error: " + error;
     }
 };
-
-document.querySelector('#app')!.innerHTML = `
-    <img id="logo" class="logo">
-      <div class="result" id="result">Please enter your name below 👇</div>
-      <div class="input-box" id="input">
-        <input class="input" id="name" type="text" autocomplete="off" />
-        <button class="btn" onclick="greet()">Greet</button>
-      </div>
-    </div>
-`;
-(document.getElementById('logo') as HTMLImageElement).src = logo;
-
-let nameElement = (document.getElementById("name") as HTMLInputElement);
-nameElement.focus();
-let resultElement = document.getElementById("result");
 
 declare global {
     interface Window {

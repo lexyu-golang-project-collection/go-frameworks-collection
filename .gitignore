@@ -169,6 +169,6 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-*.json
+wails.json
 *.txt
 *.csv
