@@ -1,4 +1,4 @@
-module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-echo
+module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-echo-template
 
 go 1.23.1
 
