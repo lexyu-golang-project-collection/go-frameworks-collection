@@ -1,4 +1,4 @@
-module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-sqlc
+module github.com/lexyu-golang-project-collection/go-frameworks-collection/go-sqlc-echo
 
 go 1.23.1
 

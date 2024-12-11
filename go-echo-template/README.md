@@ -2,6 +2,7 @@
 
 - Web
     - echo
+    - air
 - Auth
     - Casbin
     - jwt-go
