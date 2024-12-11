@@ -1,0 +1,22 @@
+# packages
+
+- Web
+    - echo
+- Auth
+    - Casbin
+    - jwt-go
+- docs
+    - swaggo
+- env
+    - godotenv
+- DB
+    - sqlc
+    - dbmate
+    - sqlite
+    - mysql
+    - postgresql
+    - mongodb
+    - redis
+    - badgerdb
+- Queue
+    - rabbitmq

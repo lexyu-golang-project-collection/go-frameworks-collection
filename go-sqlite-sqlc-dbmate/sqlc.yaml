@@ -1,8 +1,8 @@
 version: "2"
 sql:
   - engine: "sqlite"
-    queries: "db/query.sql"
-    schema: "db/schema.sql"
+    queries: "./db/query.sql"
+    schema: "./db/schema.sql"
     database:
       managed: true
     gen:
