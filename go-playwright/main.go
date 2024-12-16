@@ -5,11 +5,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/playwright-community/playwright-go"
 )
 
 const (
@@ -52,60 +53,112 @@ func (p Problem) Simplify() map[string]interface{} {
 // Playwright Backlog
 func main() {
 
-	// Make HTTP request to fetch Leetcode problems
-	resp, err := http.Get(ALGORITHMS_ENDPOINT_URL)
+	pw, err := playwright.Run()
 	if err != nil {
-		log.Fatalf("could not fetch Leetcode API: %v", err)
+		log.Fatalf("could not start Playwright: %v", err)
 	}
-	defer resp.Body.Close()
+	defer pw.Stop()
 
-	fmt.Println(resp)
-
-	// Create a JSON-serializable representation of http.Response
-	responseData := map[string]interface{}{
-		"Status":        resp.Status,
-		"StatusCode":    resp.StatusCode,
-		"Proto":         resp.Proto,
-		"Headers":       resp.Header,
-		"ContentLength": resp.ContentLength,
-	}
-
-	// Marshal it to pretty JSON
-	prettyJSON, err := json.MarshalIndent(responseData, "", " ")
+	browser, err := pw.Chromium.Launch()
 	if err != nil {
-		log.Fatalf("Error marshaling JSON: %v", err)
+		log.Fatalf("could not launch browser: %v", err)
 	}
+	defer browser.Close()
 
-	fmt.Println(string(prettyJSON))
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
+	page, err := browser.NewPage()
 	if err != nil {
-		log.Fatalf("could not read response body: %v", err)
+		log.Fatalf("could not create page: %v", err)
 	}
-	// Parse JSON response
-	data := &Data{}
-	err = json.Unmarshal(body, data)
+	defer page.Close()
+
+	file, err := os.Create("links.txt")
 	if err != nil {
-		log.Fatalf("could not parse JSON: %v", err)
+		log.Fatalf("could not create file: %v", err)
+	}
+	defer file.Close()
+
+	// Navigate to the "6 Minute English" episode page
+	_, err = page.Goto("https://www.bbc.co.uk/learningenglish/features/6-minute-english", playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad,
+	})
+	if err != nil {
+		log.Fatalf("could not go to page: %v", err)
 	}
 
-	fmt.Println(len(data.StatStatusPairs))
+	time.Sleep(3 * time.Second)
 
-	problem := data.StatStatusPairs[len(data.StatStatusPairs)-1]
-	jsonB, _ := json.MarshalIndent(problem, "", " ")
-	fmt.Println(string(jsonB))
+	// html, _ := page.Content()
+	// fmt.Println("Page HTML:")
+	// fmt.Println(html)
 
-	writeJSONToFile(data.StatStatusPairs, "problems.json")
-
-	urls := []string{}
-	for _, problem := range data.StatStatusPairs {
-		if !problem.PaidOnly {
-			url := ALGORITHMS_BASE_URL + problem.Stat.QuestionTitleSlug
-			urls = append(urls, url)
-		}
+	// Extract article titles and links
+	episodes := page.Locator(`div.img a`)
+	count, err := episodes.Count()
+	if err != nil {
+		log.Fatalf("could not get episodes: %v", err)
 	}
-	writeJSONArrayToFile(urls, "urls.json")
+
+	for i := 0; i < count; i++ {
+		link, _ := episodes.Nth(i).GetAttribute("href")
+		fullLink := fmt.Sprintf("https://www.bbc.co.uk%s", link)
+		file.WriteString(fullLink + "\n")
+		// fmt.Printf("Link: %s\n", link)
+	}
+
+	// // Make HTTP request to fetch Leetcode problems
+	// resp, err := http.Get(ALGORITHMS_ENDPOINT_URL)
+	// if err != nil {
+	// 	log.Fatalf("could not fetch Leetcode API: %v", err)
+	// }
+	// defer resp.Body.Close()
+
+	// fmt.Println(resp)
+
+	// // Create a JSON-serializable representation of http.Response
+	// responseData := map[string]interface{}{
+	// 	"Status":        resp.Status,
+	// 	"StatusCode":    resp.StatusCode,
+	// 	"Proto":         resp.Proto,
+	// 	"Headers":       resp.Header,
+	// 	"ContentLength": resp.ContentLength,
+	// }
+
+	// // Marshal it to pretty JSON
+	// prettyJSON, err := json.MarshalIndent(responseData, "", " ")
+	// if err != nil {
+	// 	log.Fatalf("Error marshaling JSON: %v", err)
+	// }
+
+	// fmt.Println(string(prettyJSON))
+
+	// // Read the response body
+	// body, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	log.Fatalf("could not read response body: %v", err)
+	// }
+	// // Parse JSON response
+	// data := &Data{}
+	// err = json.Unmarshal(body, data)
+	// if err != nil {
+	// 	log.Fatalf("could not parse JSON: %v", err)
+	// }
+
+	// fmt.Println(len(data.StatStatusPairs))
+
+	// problem := data.StatStatusPairs[len(data.StatStatusPairs)-1]
+	// jsonB, _ := json.MarshalIndent(problem, "", " ")
+	// fmt.Println(string(jsonB))
+
+	// writeJSONToFile(data.StatStatusPairs, "problems.json")
+
+	// urls := []string{}
+	// for _, problem := range data.StatStatusPairs {
+	// 	if !problem.PaidOnly {
+	// 		url := ALGORITHMS_BASE_URL + problem.Stat.QuestionTitleSlug
+	// 		urls = append(urls, url)
+	// 	}
+	// }
+	// writeJSONArrayToFile(urls, "urls.json")
 }
 
 func writeJSONToFile(data []Problem, filename string) error {
