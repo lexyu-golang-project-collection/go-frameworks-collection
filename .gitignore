@@ -172,3 +172,6 @@ $RECYCLE.BIN/
 wails.json
 *.txt
 *.csv
+.idea/modules.xml
+.idea/vcs.xml
+.idea/go-frameworks-collection.iml
