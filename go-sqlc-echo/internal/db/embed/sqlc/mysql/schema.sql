@@ -1,5 +1,0 @@
-CREATE TABLE authors (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name TEXT NOT NULL,
-    bio TEXT
-);

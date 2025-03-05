@@ -1,0 +1,12 @@
+DATABASE_URL="mysql://root:passowrd@localhost:3306/dbname?charset=utf8&parseTime=True&loc=Local"
+
+# MySQL Configuration
+MYSQL_DSN=root:password@tcp(localhost)/dbname?charset=utf8&parseTime=True&loc=Local
+MYSQL_MAX_OPEN_CONNS=10
+MYSQL_MAX_IDLE_CONNS=5
+MYSQL_MAX_LIFETIME=15m
+MYSQL_ENABLE=true
+
+# Database Retry Policy
+DB_RETRY_ATTEMPTS=3
+DB_RETRY_DELAY=2s

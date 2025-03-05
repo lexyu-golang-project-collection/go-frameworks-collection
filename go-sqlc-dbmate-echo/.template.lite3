@@ -1,0 +1,15 @@
+DATABASE_URL=sqlite:D:/SQLite/databases/test.db
+
+# SQLite Configuration
+SQLITE_DSN=D:/SQLite/databases/test.db
+SQLITE_IN_MEMORY=true
+SQLITE_MAX_OPEN_CONNS=10
+SQLITE_MAX_IDLE_CONNS=5
+SQLITE_MAX_LIFETIME=15m
+SQLITE_ENABLE=true
+
+# Database Retry Policy
+DB_RETRY_ATTEMPTS=3
+DB_RETRY_DELAY=2s
+
+
