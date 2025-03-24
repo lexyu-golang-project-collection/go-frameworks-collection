@@ -1,0 +1,172 @@
+basePath: /api
+definitions:
+  models.Director:
+    properties:
+      firstname:
+        example: Steven
+        type: string
+      lastname:
+        example: Spielberg
+        type: string
+    type: object
+  models.Movie:
+    properties:
+      director:
+        $ref: '#/definitions/models.Director'
+      id:
+        example: "1"
+        type: string
+      isbn:
+        example: "1234567890"
+        type: string
+      title:
+        example: 電影標題
+        type: string
+    type: object
+  utils.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API 支援
+    url: http://www.example.com/support
+  description: 電影、書籍和帖子的綜合 RESTful API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: 整合 API
+  version: "1.0"
+paths:
+  /movies:
+    get:
+      consumes:
+      - application/json
+      description: 獲取系統中所有電影的列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Movie'
+            type: array
+      summary: 獲取所有電影
+      tags:
+      - movies
+    post:
+      consumes:
+      - application/json
+      description: 創建新的電影記錄
+      parameters:
+      - description: 電影資料
+        in: body
+        name: movie
+        required: true
+        schema:
+          $ref: '#/definitions/models.Movie'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Movie'
+        "400":
+          description: 無效的請求體
+          schema:
+            $ref: '#/definitions/utils.ErrorResponse'
+      summary: 創建電影
+      tags:
+      - movies
+  /movies/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根據 ID 刪除特定電影
+      parameters:
+      - description: 電影 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 電影未找到
+          schema:
+            $ref: '#/definitions/utils.ErrorResponse'
+      summary: 刪除電影
+      tags:
+      - movies
+    get:
+      consumes:
+      - application/json
+      description: 根據 ID 獲取特定電影的詳細信息
+      parameters:
+      - description: 電影 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Movie'
+        "404":
+          description: 電影未找到
+          schema:
+            $ref: '#/definitions/utils.ErrorResponse'
+      summary: 獲取特定電影
+      tags:
+      - movies
+    put:
+      consumes:
+      - application/json
+      description: 根據 ID 更新特定電影的信息
+      parameters:
+      - description: 電影 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 電影資料
+        in: body
+        name: movie
+        required: true
+        schema:
+          $ref: '#/definitions/models.Movie'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Movie'
+        "400":
+          description: 無效的請求體
+          schema:
+            $ref: '#/definitions/utils.ErrorResponse'
+        "404":
+          description: 電影未找到
+          schema:
+            $ref: '#/definitions/utils.ErrorResponse'
+      summary: 更新電影
+      tags:
+      - movies
+swagger: "2.0"
