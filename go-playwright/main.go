@@ -2,639 +2,435 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/playwright-community/playwright-go"
 )
 
-// PlaywrightContext 包裝 Playwright 相關物件
-type PlaywrightContext struct {
-	pw      *playwright.Playwright
-	browser playwright.Browser
-	context playwright.BrowserContext
-	page    playwright.Page
-}
-
-// NewPlaywrightContext 建立新的 Playwright 上下文
-func NewPlaywrightContext() *PlaywrightContext {
-	pw, err := playwright.Run()
-	if err != nil {
-		log.Fatalf("Playwright 啟動失敗: %v", err)
-	}
-
-	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
-	})
-	if err != nil {
-		log.Fatalf("瀏覽器啟動失敗: %v", err)
-	}
-
-	ctx, err := browser.NewContext()
-	if err != nil {
-		log.Fatalf("建立 context 失敗: %v", err)
-	}
-
-	page, err := ctx.NewPage()
-	if err != nil {
-		log.Fatalf("建立 page 失敗: %v", err)
-	}
-
-	return &PlaywrightContext{
-		pw:      pw,
-		browser: browser,
-		context: ctx,
-		page:    page,
-	}
-}
-
-// Close 關閉所有 Playwright 資源
-func (pc *PlaywrightContext) Close() {
-	_ = pc.browser.Close()
-	_ = pc.pw.Stop()
-}
-
-// NavigateToPage 導航到指定頁面
-func (pc *PlaywrightContext) NavigateToPage(url string) error {
-	_, err := pc.page.Goto(url)
-	return err
-}
-
-// === 基礎文字擷取 API Demo ===
-
-// GetSingleText 取得單一元素的文字內容
-func (pc *PlaywrightContext) GetSingleText(selector string) (string, error) {
-	return pc.page.Locator(selector).TextContent()
-}
-
-// GetAllTexts 取得多個元素的文字內容
-func (pc *PlaywrightContext) GetAllTexts(selector string) ([]string, error) {
-	locator := pc.page.Locator(selector)
-	count, err := locator.Count()
-	if err != nil {
-		return nil, err
-	}
-
-	var texts []string
-	for i := 0; i < count; i++ {
-		text, err := locator.Nth(i).TextContent()
-		if err != nil {
-			continue
-		}
-		texts = append(texts, text)
-	}
-	return texts, nil
-}
-
-// GetTextByIndex 根據索引取得特定元素的文字
-func (pc *PlaywrightContext) GetTextByIndex(selector string, index int) (string, error) {
-	return pc.page.Locator(selector).Nth(index).TextContent()
-}
-
-// === 屬性擷取 API Demo ===
-
-// GetSingleAttribute 取得單一元素的屬性值
-func (pc *PlaywrightContext) GetSingleAttribute(selector, attribute string) (string, error) {
-	val, err := pc.page.Locator(selector).GetAttribute(attribute)
-	if err != nil {
-		return "", err
-	}
-	// Playwright Go 的 GetAttribute 返回 string，空字符串表示屬性不存在
-	if val == "" {
-		return "", fmt.Errorf("屬性 %s 不存在或為空", attribute)
-	}
-	return val, nil
-}
-
-// GetMultipleAttributes 取得多個元素的相同屬性值
-func (pc *PlaywrightContext) GetMultipleAttributes(selector, attribute string) ([]string, error) {
-	script := fmt.Sprintf(`elements => elements.map(el => el.getAttribute("%s"))`, attribute)
-	result, err := pc.page.Locator(selector).EvaluateAll(script)
-	if err != nil {
-		return nil, err
-	}
-
-	var attributes []string
-	for _, v := range result.([]interface{}) {
-		if v != nil {
-			attributes = append(attributes, v.(string))
-		}
-	}
-	return attributes, nil
-}
-
-// === 鏈接擷取 API Demo ===
-
-// ExtractLinksFromClass 從指定 class 底下提取所有 a 元素的 href 鏈接
-func (pc *PlaywrightContext) ExtractLinksFromClass(className string) ([]string, error) {
-	selector := fmt.Sprintf(".%s a", className)
-	return pc.GetMultipleAttributes(selector, "href")
-}
-
-// ExtractLinksFromClassWithText 從指定 class 底下提取帶有特定文字的 a 元素鏈接
-func (pc *PlaywrightContext) ExtractLinksFromClassWithText(className, textFilter string) ([]string, error) {
-	selector := fmt.Sprintf(".%s a", className)
-	locator := pc.page.Locator(selector)
-	filtered := locator.Filter(playwright.LocatorFilterOptions{
-		HasText: playwright.String(textFilter),
-	})
-
-	count, err := filtered.Count()
-	if err != nil {
-		return nil, err
-	}
-
-	var links []string
-	for i := 0; i < count; i++ {
-		href, err := filtered.Nth(i).GetAttribute("href")
-		if err != nil || href == "" {
-			continue
-		}
-		links = append(links, href)
-	}
-	return links, nil
-}
-
-// ExtractAllLinksWithDetails 提取頁面所有鏈接的詳細資訊
-func (pc *PlaywrightContext) ExtractAllLinksWithDetails(selector string) ([]LinkDetails, error) {
-	locator := pc.page.Locator(selector)
-	count, err := locator.Count()
-	if err != nil {
-		return nil, err
-	}
-
-	var linkDetails []LinkDetails
-	for i := 0; i < count; i++ {
-		element := locator.Nth(i)
-
-		href, _ := element.GetAttribute("href")
-		text, _ := element.TextContent()
-		title, _ := element.GetAttribute("title")
-
-		detail := LinkDetails{
-			Index: i,
-			Text:  strings.TrimSpace(text),
-		}
-
-		if href != "" {
-			detail.URL = href
-		}
-		if title != "" {
-			detail.Title = title
-		}
-
-		linkDetails = append(linkDetails, detail)
-	}
-	return linkDetails, nil
-}
-
-// LinkDetails 鏈接詳細資訊結構
-type LinkDetails struct {
-	Index int    `json:"index"`
-	URL   string `json:"url"`
-	Text  string `json:"text"`
-	Title string `json:"title"`
-}
-
-// === HTML 內容擷取 API Demo ===
-
-// GetInnerHTML 取得元素的 innerHTML
-func (pc *PlaywrightContext) GetInnerHTML(selector string) (string, error) {
-	return pc.page.Locator(selector).First().InnerHTML()
-}
-
-// GetOuterHTML 取得元素的 outerHTML
-func (pc *PlaywrightContext) GetOuterHTML(selector string) (string, error) {
-	return pc.page.Locator(selector).InnerHTML()
-}
-
-// === 表單元素 API Demo ===
-
-// GetInputValue 取得 input 元素的值
-func (pc *PlaywrightContext) GetInputValue(selector string) (string, error) {
-	return pc.page.Locator(selector).InputValue()
-}
-
-// GetSelectValue 取得 select 元素的值
-func (pc *PlaywrightContext) GetSelectValue(selector string) (string, error) {
-	return pc.page.Locator(selector).InputValue()
-}
-
-// IsElementChecked 檢查 checkbox 或 radio 是否被選中
-func (pc *PlaywrightContext) IsElementChecked(selector string) (bool, error) {
-	return pc.page.Locator(selector).IsChecked()
-}
-
-// === 元素過濾 API Demo ===
-
-// FilterElementsByText 根據文字內容過濾元素
-func (pc *PlaywrightContext) FilterElementsByText(selector, text string) ([]string, error) {
-	filtered := pc.page.Locator(selector).Filter(playwright.LocatorFilterOptions{
-		HasText: playwright.String(text),
-	})
-
-	count, err := filtered.Count()
-	if err != nil {
-		return nil, err
-	}
-
-	var results []string
-	for i := 0; i < count; i++ {
-		content, err := filtered.Nth(i).TextContent()
-		if err != nil {
-			continue
-		}
-		results = append(results, content)
-	}
-	return results, nil
-}
-
-// FilterElementsByAttribute 根據屬性過濾元素
-func (pc *PlaywrightContext) FilterElementsByAttribute(selector, attribute, value string) ([]string, error) {
-	script := fmt.Sprintf(`elements => elements.filter(el => el.getAttribute("%s") === "%s").map(el => el.textContent)`, attribute, value)
-	result, err := pc.page.Locator(selector).EvaluateAll(script)
-	if err != nil {
-		return nil, err
-	}
-
-	var filteredTexts []string
-	for _, v := range result.([]interface{}) {
-		if v != nil {
-			filteredTexts = append(filteredTexts, v.(string))
-		}
-	}
-	return filteredTexts, nil
-}
-
-// === Demo 執行函數 ===
-
-// RunTextExtractionDemo 執行文字擷取示例
-func RunTextExtractionDemo(url string) {
-	fmt.Println("=== 文字擷取 Demo ===")
-	pc := NewPlaywrightContext()
-	defer pc.Close()
-
-	if err := pc.NavigateToPage(url); err != nil {
-		log.Printf("頁面導航失敗: %v", err)
-		return
-	}
-
-	// 取得標題文字
-	if title, err := pc.GetSingleText("h1"); err == nil {
-		fmt.Printf("頁面標題: %s\n", title)
-	}
-
-	// 取得所有列表項目
-	if texts, err := pc.GetAllTexts("ul > li"); err == nil {
-		fmt.Printf("找到 %d 個列表項目:\n", len(texts))
-		for i, text := range texts {
-			fmt.Printf("  %d: %s\n", i+1, text)
-		}
-	}
-}
-
-// RunLinkExtractionDemo 執行鏈接擷取示例
-func RunLinkExtractionDemo(url, className string) {
-	fmt.Println("=== 鏈接擷取 Demo ===")
-	pc := NewPlaywrightContext()
-	defer pc.Close()
-
-	if err := pc.NavigateToPage(url); err != nil {
-		log.Printf("頁面導航失敗: %v", err)
-		return
-	}
-
-	// 從指定 class 提取所有鏈接
-	if links, err := pc.ExtractLinksFromClass(className); err == nil {
-		fmt.Printf("從 class '%s' 找到 %d 個鏈接:\n", className, len(links))
-		for i, link := range links {
-			fmt.Printf("  %d: %s\n", i+1, link)
-		}
-	}
-
-	// 提取所有鏈接的詳細資訊
-	if details, err := pc.ExtractAllLinksWithDetails("a"); err == nil {
-		fmt.Printf("\n所有鏈接詳細資訊 (前5個):\n")
-		for i, detail := range details {
-			if i >= 5 {
-				break
-			}
-			fmt.Printf("  %d: %s -> %s\n", detail.Index+1, detail.Text, detail.URL)
-		}
-	}
-}
-
-// RunAttributeExtractionDemo 執行屬性擷取示例
-func RunAttributeExtractionDemo(url string) {
-	fmt.Println("=== 屬性擷取 Demo ===")
-	pc := NewPlaywrightContext()
-	defer pc.Close()
-
-	if err := pc.NavigateToPage(url); err != nil {
-		log.Printf("頁面導航失敗: %v", err)
-		return
-	}
-
-	// 取得第一個鏈接的 href
-	if href, err := pc.GetSingleAttribute("a", "href"); err == nil && href != "" {
-		fmt.Printf("第一個鏈接的 href: %s\n", href)
-	}
-
-	// 取得所有圖片的 alt 屬性
-	if alts, err := pc.GetMultipleAttributes("img", "alt"); err == nil {
-		fmt.Printf("找到 %d 個圖片的 alt 屬性:\n", len(alts))
-		for i, alt := range alts {
-			if alt != "" {
-				fmt.Printf("  %d: %s\n", i+1, alt)
-			}
-		}
-	}
-}
-
-// RunFormElementDemo 執行表單元素示例
-func RunFormElementDemo(url string) {
-	fmt.Println("=== 表單元素 Demo ===")
-	pc := NewPlaywrightContext()
-	defer pc.Close()
-
-	if err := pc.NavigateToPage(url); err != nil {
-		log.Printf("頁面導航失敗: %v", err)
-		return
-	}
-
-	// 嘗試取得搜尋框的值
-	if value, err := pc.GetInputValue("input[name=q]"); err == nil {
-		fmt.Printf("搜尋框當前值: '%s'\n", value)
-	}
-}
-
-// =========================================================================
-
-// CaptureM3U8AfterClick 點擊元素後捕獲 m3u8 URL
-func (pc *PlaywrightContext) CaptureM3U8AfterClick(clickSelector string, timeout time.Duration) ([]string, error) {
-	var m3u8URLs []string
-	done := make(chan bool, 1)
-
-	// 監聽網路請求
-	pc.page.OnRequest(func(request playwright.Request) {
-		url := request.URL()
-		if strings.Contains(url, ".m3u8") {
-			fmt.Printf("發現 m3u8: %s\n", url)
-			m3u8URLs = append(m3u8URLs, url)
-
-			// 優先選擇 easy_audio 版本
-			if strings.Contains(url, "easy_audio") {
-				fmt.Printf("找到目標音頻: %s\n", url)
-				done <- true
-			}
-		}
-	})
-
-	// 點擊觸發元素
-	if err := pc.page.Locator(clickSelector).Click(); err != nil {
-		return nil, fmt.Errorf("點擊失敗: %v", err)
-	}
-
-	// 等待結果或超時
-	select {
-	case <-done:
-		return m3u8URLs, nil
-	case <-time.After(timeout):
-		if len(m3u8URLs) > 0 {
-			return m3u8URLs, nil
-		}
-		return nil, fmt.Errorf("超時未找到目標 m3u8")
-	}
-}
-
-// CaptureAllAudioRequests 捕獲所有音頻相關請求
-func (pc *PlaywrightContext) CaptureAllAudioRequests(clickSelector string, timeout time.Duration) ([]AudioRequest, error) {
-	var audioRequests []AudioRequest
-	done := make(chan bool, 1)
-
-	pc.page.OnRequest(func(request playwright.Request) {
-		url := request.URL()
-		contentType, _ := request.HeaderValue("content-type")
-
-		// 檢查是否為音頻相關請求
-		if isAudioRequest(url, contentType) {
-			headers, err := request.AllHeaders()
-			if err != nil {
-				headers = make(map[string]string) // 如果取得 headers 失敗，使用空 map
-			}
-
-			audioReq := AudioRequest{
-				URL:         url,
-				Method:      request.Method(),
-				ContentType: contentType,
-				Headers:     headers,
-			}
-			audioRequests = append(audioRequests, audioReq)
-			fmt.Printf("音頻請求: %s\n", url)
-		}
-	})
-
-	go func() {
-		time.Sleep(timeout)
-		done <- true
-	}()
-
-	if err := pc.page.Locator(clickSelector).Click(); err != nil {
-		return nil, fmt.Errorf("點擊失敗: %v", err)
-	}
-
-	<-done
-	return audioRequests, nil
-}
-
-// AudioRequest 音頻請求結構
-type AudioRequest struct {
-	URL         string            `json:"url"`
-	Method      string            `json:"method"`
-	ContentType string            `json:"content_type"`
-	Headers     map[string]string `json:"headers"`
-}
-
-// isAudioRequest 判斷是否為音頻相關請求
-func isAudioRequest(url, contentType string) bool {
-	audioExtensions := []string{".m3u8", ".mp3", ".wav", ".aac", ".m4a", ".flac"}
-	audioTypes := []string{"audio/", "application/vnd.apple.mpegurl"}
-
-	// 檢查 URL 副檔名
-	for _, ext := range audioExtensions {
-		if strings.Contains(strings.ToLower(url), ext) {
-			return true
-		}
-	}
-
-	// 檢查 Content-Type
-	for _, audioType := range audioTypes {
-		if strings.Contains(strings.ToLower(contentType), audioType) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// WaitForSpecificRequest 等待特定模式的請求
-func (pc *PlaywrightContext) WaitForSpecificRequest(pattern string, clickSelector string) (string, error) {
-	var capturedURL string
-	done := make(chan bool, 1)
-
-	// 監聽請求
-	pc.page.OnRequest(func(request playwright.Request) {
-		url := request.URL()
-		if strings.Contains(url, pattern) || matchPattern(url, pattern) {
-			capturedURL = url
-			done <- true
-		}
-	})
-
-	// 點擊觸發
+// =============================================================================
+// M3U8 捕獲核心功能
+// =============================================================================
+
+// ExtractM3U8URLFromClick 點擊後從 iframe src 構造 m3u8 URL
+func (pc *PlaywrightContext) ExtractM3U8URLFromClick(clickSelector string) (string, error) {
+	// 點擊音頻按鈕
+	fmt.Printf("點擊元素: %s\n", clickSelector)
 	if err := pc.page.Locator(clickSelector).Click(); err != nil {
 		return "", fmt.Errorf("點擊失敗: %v", err)
 	}
 
-	// 等待結果或超時
-	select {
-	case <-done:
-		return capturedURL, nil
-	case <-time.After(10 * time.Second):
-		return "", fmt.Errorf("等待請求超時")
+	// 等待 iframe 出現
+	fmt.Println("等待 iframe 出現...")
+	iframeSelector := "iframe"
+	iframeLocator := pc.page.Locator(iframeSelector)
+	if err := iframeLocator.WaitFor(playwright.LocatorWaitForOptions{
+		Timeout: playwright.Float(10000),
+	}); err != nil {
+		return "", fmt.Errorf("iframe 未出現: %v", err)
 	}
+
+	// 獲取 iframe 的 src 屬性
+	src, err := iframeLocator.GetAttribute("src")
+	if err != nil || src == "" {
+		return "", fmt.Errorf("無法獲取 iframe src")
+	}
+
+	fmt.Printf("iframe src: %s\n", src)
+
+	// 解析 voiceId 參數
+	// 預期格式: /news/easy/player/audio-v5.html?voiceId=ne2025060919337_oUAsAp6iLwRQnhIj4ecXzFKbcUThqGqz06pLAzGB.m4a&title=...
+	if !strings.Contains(src, "voiceId=") {
+		return "", fmt.Errorf("iframe src 中找不到 voiceId 參數")
+	}
+
+	// 提取 voiceId
+	parts := strings.Split(src, "voiceId=")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("無法解析 voiceId")
+	}
+
+	voiceIdPart := parts[1]
+	// 移除 .m4a 後綴和後續參數
+	voiceId := strings.Split(voiceIdPart, ".m4a")[0]
+	voiceId = strings.Split(voiceId, "&")[0]
+
+	if voiceId == "" {
+		return "", fmt.Errorf("voiceId 為空")
+	}
+
+	// 構造 m3u8 URL
+	m3u8URL := fmt.Sprintf("https://vod-stream.nhk.jp/news/easy_audio/%s/index.m3u8", voiceId)
+
+	fmt.Printf("✅ 提取的 voiceId: %s\n", voiceId)
+	fmt.Printf("✅ 構造的 m3u8 URL: %s\n", m3u8URL)
+
+	return m3u8URL, nil
 }
 
-// matchPattern 簡單的模式匹配函數
-func matchPattern(url, pattern string) bool {
-	// 處理 **/*.m3u8 這樣的模式
-	if strings.Contains(pattern, "**/*") {
-		suffix := strings.TrimPrefix(pattern, "**/*")
-		return strings.HasSuffix(url, suffix)
+// VerifyM3U8URL 驗證構造的 m3u8 URL 是否有效
+func (pc *PlaywrightContext) VerifyM3U8URL(m3u8URL string) (bool, error) {
+	// 建立新頁面測試 URL
+	testPage, err := pc.context.NewPage()
+	if err != nil {
+		return false, err
 	}
-	return strings.Contains(url, pattern)
+	defer testPage.Close()
+
+	// 嘗試訪問 m3u8 URL
+	response, err := testPage.Goto(m3u8URL)
+	if err != nil {
+		return false, fmt.Errorf("無法訪問 m3u8 URL: %v", err)
+	}
+
+	status := response.Status()
+	fmt.Printf("M3U8 URL 狀態碼: %d\n", status)
+
+	if status == 200 {
+		// 檢查內容是否為 m3u8 格式
+		content, err := testPage.Content()
+		if err != nil {
+			return false, err
+		}
+
+		if strings.Contains(content, "#EXTM3U") {
+			fmt.Printf("✅ M3U8 URL 驗證成功！\n")
+			return true, nil
+		}
+	}
+
+	return false, fmt.Errorf("M3U8 URL 無效或無法訪問")
 }
 
-// AdvancedNetworkCapture 進階網路捕獲 (包含回應內容)
-func (pc *PlaywrightContext) AdvancedNetworkCapture(clickSelector string, timeout time.Duration) ([]NetworkCapture, error) {
-	var captures []NetworkCapture
-	done := make(chan bool, 1)
+// =============================================================================
+// Demo 函數
+// =============================================================================
 
-	// 同時監聽請求和回應
+// RunM3U8CaptureDemo M3U8 捕獲示例
+func RunM3U8CaptureDemo() {
+	fmt.Println("=== M3U8 捕獲測試 ===")
+
+	pc := NewPlaywrightContext()
+	defer pc.Close()
+
+	// 目標頁面和選擇器
+	url := "https://www3.nhk.or.jp/news/easy/ne2025060919337/ne2025060919337.html"
+	clickSelector := ".js-open-audio" // 修正後的選擇器
+
+	// 導航到目標頁面
+	fmt.Printf("導航到: %s\n", url)
+	if err := pc.NavigateToPage(url); err != nil {
+		log.Printf("頁面導航失敗: %v", err)
+		return
+	}
+
+	// 等待頁面載入完成
+	fmt.Println("等待頁面載入...")
+	time.Sleep(5 * time.Second)
+
+	// 先檢查所有網路請求
+	fmt.Println("\n--- 設置全域網路監聽 ---")
 	pc.page.OnRequest(func(request playwright.Request) {
-		contentType, _ := request.HeaderValue("content-type")
-		if isAudioRequest(request.URL(), contentType) {
-			headers, err := request.AllHeaders()
-			if err != nil {
-				headers = make(map[string]string)
-			}
+		url := request.URL()
+		fmt.Printf("🌐 網路請求: %s\n", url)
+		if strings.Contains(url, ".m3u8") {
+			fmt.Printf("🎵 發現 M3U8: %s\n", url)
+		}
+	})
 
-			capture := NetworkCapture{
-				URL:       request.URL(),
-				Method:    request.Method(),
-				Headers:   headers,
-				Timestamp: time.Now(),
-			}
-			captures = append(captures, capture)
+	// 檢查按鈕狀態
+	fmt.Printf("\n--- 檢查按鈕狀態 ---\n")
+	locator := pc.page.Locator(clickSelector)
+	count, err := locator.Count()
+	if err != nil {
+		fmt.Printf("❌ 檢查按鈕失敗: %v\n", err)
+		return
+	}
+	fmt.Printf("找到 %d 個按鈕\n", count)
+
+	if count == 0 {
+		fmt.Printf("❌ 找不到按鈕，嘗試其他選擇器...\n")
+		// 嘗試其他可能的選擇器
+		alternativeSelectors := []string{
+			".article-buttons__audio",
+			"[class*='audio']",
+			"a[href='#']",
+		}
+
+		for _, selector := range alternativeSelectors {
+			testLocator := pc.page.Locator(selector)
+			testCount, _ := testLocator.Count()
+			fmt.Printf("選擇器 '%s': %d 個元素\n", selector, testCount)
+		}
+		return
+	}
+
+	// 檢查按鈕是否可見和可點擊
+	isVisible, _ := locator.IsVisible()
+	isEnabled, _ := locator.IsEnabled()
+	fmt.Printf("按鈕可見: %t, 可點擊: %t\n", isVisible, isEnabled)
+
+	// 等待按鈕可點擊
+	fmt.Println("等待按鈕可點擊...")
+	if err := locator.WaitFor(playwright.LocatorWaitForOptions{
+		State:   playwright.WaitForSelectorStateVisible,
+		Timeout: playwright.Float(10000),
+	}); err != nil {
+		fmt.Printf("❌ 按鈕等待失敗: %v\n", err)
+		return
+	}
+
+	fmt.Println("\n--- 執行點擊 ---")
+	if err := locator.Click(); err != nil {
+		fmt.Printf("❌ 點擊失敗: %v\n", err)
+		return
+	}
+	fmt.Println("✅ 點擊成功")
+
+	// 檢查點擊後的變化
+	fmt.Println("\n--- 檢查點擊後變化 ---")
+	time.Sleep(2 * time.Second)
+
+	// 檢查 iframe 是否出現
+	iframeLocator := pc.page.Locator("iframe")
+	iframeCount, _ := iframeLocator.Count()
+	fmt.Printf("找到 %d 個 iframe\n", iframeCount)
+
+	// 檢查 audio 元素
+	audioLocator := pc.page.Locator("audio")
+	audioCount, _ := audioLocator.Count()
+	fmt.Printf("找到 %d 個 audio 元素\n", audioCount)
+
+	// 檢查是否有 is-active class
+	activeLocator := pc.page.Locator(".is-active")
+	activeCount, _ := activeLocator.Count()
+	fmt.Printf("找到 %d 個 .is-active 元素\n", activeCount)
+
+	// 長時間等待網路請求
+	fmt.Println("\n--- 等待網路請求 (20秒) ---")
+	time.Sleep(20 * time.Second)
+
+	fmt.Println("✅ 測試完成")
+}
+
+// DeepDebugM3U8 深度除錯版本
+func DeepDebugM3U8() {
+	fmt.Println("=== 深度除錯 M3U8 ===")
+
+	pc := NewPlaywrightContext()
+	defer pc.Close()
+
+	url := "https://www3.nhk.or.jp/news/easy/ne2025060919337/ne2025060919337.html"
+
+	// 監聽所有可能的網路活動
+	pc.page.OnRequest(func(request playwright.Request) {
+		reqURL := request.URL()
+		method := request.Method()
+		fmt.Printf("📤 請求: %s %s\n", method, reqURL)
+
+		// 檢查任何音頻相關的請求
+		if strings.Contains(reqURL, "audio") ||
+			strings.Contains(reqURL, "m3u8") ||
+			strings.Contains(reqURL, "mp3") ||
+			strings.Contains(reqURL, "m4a") ||
+			strings.Contains(reqURL, "vod-stream") {
+			fmt.Printf("🎵 音頻相關請求: %s\n", reqURL)
 		}
 	})
 
 	pc.page.OnResponse(func(response playwright.Response) {
-		contentType, _ := response.HeaderValue("content-type")
-		if isAudioRequest(response.URL(), contentType) {
-			// 更新對應的 capture
-			for i := range captures {
-				if captures[i].URL == response.URL() {
-					captures[i].Status = response.Status()
-					captures[i].StatusText = response.StatusText()
+		respURL := response.URL()
+		status := response.Status()
 
-					// 處理回應 headers
-					responseHeaders, err := response.AllHeaders()
-					if err != nil {
-						responseHeaders = make(map[string]string)
-					}
-					captures[i].ResponseHeaders = responseHeaders
-					break
-				}
-			}
+		if strings.Contains(respURL, "audio") ||
+			strings.Contains(respURL, "m3u8") ||
+			strings.Contains(respURL, "vod-stream") {
+			fmt.Printf("📥 音頻回應: %d %s\n", status, respURL)
 		}
 	})
 
-	go func() {
-		time.Sleep(timeout)
-		done <- true
-	}()
+	// 導航並執行
+	fmt.Printf("導航到: %s\n", url)
+	pc.NavigateToPage(url)
 
-	if err := pc.page.Locator(clickSelector).Click(); err != nil {
-		return nil, fmt.Errorf("點擊失敗: %v", err)
-	}
+	fmt.Println("等待初始載入...")
+	time.Sleep(5 * time.Second)
 
-	<-done
-	return captures, nil
-}
-
-// NetworkCapture 網路捕獲結構
-type NetworkCapture struct {
-	URL             string            `json:"url"`
-	Method          string            `json:"method"`
-	Headers         map[string]string `json:"headers"`
-	Status          int               `json:"status"`
-	StatusText      string            `json:"status_text"`
-	ResponseHeaders map[string]string `json:"response_headers"`
-	Timestamp       time.Time         `json:"timestamp"`
-}
-
-// Demo 使用範例
-func RunM3U8CaptureDemo() {
-	pc := NewPlaywrightContext()
-	defer pc.Close()
-
-	// 導航到目標頁面
-	pc.NavigateToPage("https://www3.nhk.or.jp/news/easy/ne2025060919337/ne2025060919337.html")
-
-	// 方法 1: 簡單捕獲 m3u8
-	m3u8URLs, err := pc.CaptureM3U8AfterClick(".article-buttons__audio js-open-audio is-active", 5*time.Second)
-	if err != nil {
-		log.Printf("捕獲失敗: %v", err)
+	fmt.Println("執行點擊...")
+	if err := pc.page.Locator(".js-open-audio").Click(); err != nil {
+		fmt.Printf("點擊失敗: %v\n", err)
 		return
 	}
 
-	fmt.Printf("找到 %d 個 m3u8 URL:\n", len(m3u8URLs))
-	for _, url := range m3u8URLs {
-		fmt.Printf("- %s\n", url)
-	}
-
-	// 方法 2: 等待特定請求模式
-	// m3u8URL, err := pc.WaitForSpecificRequest("**/*.m3u8", ".play-button")
-	// if err != nil {
-	// 	log.Printf("等待請求失敗: %v", err)
-	// 	return
-	// }
-	// fmt.Printf("M3U8 URL: %s\n", m3u8URL)
+	fmt.Println("等待 30 秒觀察...")
+	time.Sleep(30 * time.Second)
 }
 
-// =========================================================================
+// TestClickButton 測試按鈕點擊功能
+func TestClickButton() {
+	fmt.Println("=== 測試按鈕點擊 ===")
+
+	pc := NewPlaywrightContext()
+	defer pc.Close()
+
+	url := "https://www3.nhk.or.jp/news/easy/ne2025060919337/ne2025060919337.html"
+
+	fmt.Printf("導航到: %s\n", url)
+	if err := pc.NavigateToPage(url); err != nil {
+		log.Printf("頁面導航失敗: %v", err)
+		return
+	}
+
+	time.Sleep(2 * time.Second)
+
+	// 測試按鈕是否存在
+	clickSelector := ".js-open-audio"
+	locator := pc.page.Locator(clickSelector)
+
+	count, err := locator.Count()
+	if err != nil {
+		fmt.Printf("❌ 檢查元素失敗: %v\n", err)
+		return
+	}
+
+	fmt.Printf("找到 %d 個匹配的元素\n", count)
+
+	if count > 0 {
+		fmt.Printf("✅ 嘗試點擊按鈕...\n")
+		if err := locator.Click(); err != nil {
+			fmt.Printf("❌ 點擊失敗: %v\n", err)
+		} else {
+			fmt.Printf("✅ 點擊成功！\n")
+			time.Sleep(3 * time.Second) // 觀察結果
+		}
+	} else {
+		fmt.Printf("❌ 找不到目標按鈕\n")
+	}
+}
+
+// DownloadM3U8Content 直接下載 m3u8 內容到本地
+func DownloadM3U8Content(m3u8URL, saveFilename string) error {
+	fmt.Printf("正在下載 M3U8: %s\n", m3u8URL)
+
+	// 建立 HTTP 客戶端
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// 建立請求
+	req, err := http.NewRequest("GET", m3u8URL, nil)
+	if err != nil {
+		return fmt.Errorf("建立請求失敗: %v", err)
+	}
+
+	// 設置 headers 模擬瀏覽器
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("Accept", "application/vnd.apple.mpegurl,*/*")
+	req.Header.Set("Referer", "https://www3.nhk.or.jp/")
+
+	// 發送請求
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("請求失敗: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 檢查狀態碼
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("HTTP 錯誤: %d", resp.StatusCode)
+	}
+
+	// 讀取內容
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("讀取內容失敗: %v", err)
+	}
+
+	// 檢查是否為 m3u8 格式
+	contentStr := string(content)
+	if !strings.Contains(contentStr, "#EXTM3U") {
+		return fmt.Errorf("回應不是有效的 m3u8 格式")
+	}
+
+	// 儲存到文件
+	err = os.WriteFile(saveFilename, content, 0644)
+	if err != nil {
+		return fmt.Errorf("儲存文件失敗: %v", err)
+	}
+
+	fmt.Printf("✅ M3U8 內容已儲存到: %s\n", saveFilename)
+	fmt.Printf("📄 內容大小: %d bytes\n", len(content))
+
+	// 顯示前幾行內容
+	lines := strings.Split(contentStr, "\n")
+	fmt.Println("📋 M3U8 內容預覽:")
+	for i, line := range lines {
+		if i >= 5 {
+			break
+		}
+		fmt.Printf("  %s\n", line)
+	}
+
+	return nil
+}
+
+// CompleteM3U8Workflow 完整的 M3U8 提取和下載流程
+func CompleteM3U8Workflow() {
+	fmt.Println("=== 完整 M3U8 提取流程 ===")
+
+	pc := NewPlaywrightContext()
+	defer pc.Close()
+
+	url := "https://www3.nhk.or.jp/news/easy/ne2025060919337/ne2025060919337.html"
+
+	// 導航和提取 URL
+	fmt.Printf("導航到: %s\n", url)
+	pc.NavigateToPage(url)
+	time.Sleep(3 * time.Second)
+
+	m3u8URL, err := pc.ExtractM3U8URLFromClick(".js-open-audio")
+	if err != nil {
+		log.Printf("❌ 提取失敗: %v\n", err)
+		return
+	}
+
+	fmt.Printf("🎯 M3U8 URL: %s\n", m3u8URL)
+
+	// 直接下載 m3u8 內容
+	// filename := "audio_playlist.m3u8"
+	// if err := DownloadM3U8Content(m3u8URL, filename); err != nil {
+	// 	log.Printf("❌ 下載失敗: %v\n", err)
+	// 	return
+	// }
+
+	// fmt.Printf("🎉 流程完成！M3U8 列表已儲存到 %s\n", filename)
+}
+
+// =============================================================================
+// 主程式
+// =============================================================================
 
 func main() {
 	// 安裝 Playwright
+	fmt.Println("安裝 Playwright...")
 	if err := playwright.Install(); err != nil {
 		log.Fatalf("Playwright Install() 失敗: %v", err)
 	}
 
-	// url := "https://www3.nhk.or.jp/news/easy/"
+	// 選擇要執行的測試
+	// fmt.Println("開始深度除錯測試...")
+	// 先執行深度除錯
+	// DeepDebugM3U8()
 
-	// 執行各種 Demo
-	// RunTextExtractionDemo(url)
-	// fmt.Println()
+	// fmt.Println("\n" + strings.Repeat("=", 60) + "\n")
 
-	// RunLinkExtractionDemo(url, "news-list__item")
-	// fmt.Println()
+	// 再執行詳細測試
+	// RunM3U8CaptureDemo()
 
-	// RunAttributeExtractionDemo(url)
-	// fmt.Println()
-
-	// RunFormElementDemo(url)
-
-	RunM3U8CaptureDemo()
+	// 執行最終解決方案
+	CompleteM3U8Workflow()
 }
